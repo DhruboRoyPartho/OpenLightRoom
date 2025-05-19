@@ -1,0 +1,9 @@
+# Ignore __pycache__
+__pycache__/
+
+# Ignore some specific directories
+tests/
+output/
+
+# Ignore specific files
+headless_main.py
