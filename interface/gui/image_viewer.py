@@ -26,7 +26,8 @@ class ImageViewer(QLabel):
             return
         h, w, ch = img.shape
         bytes_per_line = ch * w
-        qimg = QImage(img.data, w, h, bytes_per_line, QImage.Format_BGR888)
+        img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        qimg = QImage(img_bgr.data, w, h, bytes_per_line, QImage.Format_BGR888)
         self.setPixmap(QPixmap.fromImage(qimg).scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
 
     def resizeEvent(self, event):
