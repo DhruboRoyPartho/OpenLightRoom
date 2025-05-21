@@ -9,7 +9,7 @@ class ImageViewer(QLabel):
         super().__init__()
         self.document = document
         self.setAlignment(Qt.AlignCenter)
-        self.setMinimumSize(400, 300)
+        self.setMinimumSize(500, 500)
 
         self.render_queue = RenderQueue(self.document)
         self.render_queue.image_rendered.connect(self.set_image)
