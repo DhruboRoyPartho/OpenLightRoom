@@ -15,6 +15,9 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Open LightRoom")
 
+        # Optional Window size
+        self.setGeometry(100, 50, 1080, 720)
+
         # Menubar setup
         menu_bar = QMenuBar(self)
         file_menu = QMenu("File", self)
@@ -56,6 +59,10 @@ class MainWindow(QMainWindow):
         self.layer_stack_panel = LayerStackPanel(self.document, self.image_viewer)
 
         self.controls_panel = ControlsPanel(self.document, self.image_viewer, self.layer_stack_panel)
+
+        # Fixed size of controls panel and stack
+        self.controls_panel.setFixedWidth(350)
+        self.layer_stack_panel.setFixedWidth(280)
 
         layout.addWidget(self.image_viewer)
         layout.addWidget(self.controls_panel)
@@ -121,6 +128,10 @@ class MainWindow(QMainWindow):
         self.image_viewer = ImageViewer(self.document)
         self.layer_stack_panel = LayerStackPanel(self.document, self.image_viewer)
         self.controls_panel = ControlsPanel(self.document, self.image_viewer, self.layer_stack_panel)
+
+        # Fixed size of controls panel and stack
+        self.controls_panel.setFixedWidth(350)
+        self.layer_stack_panel.setFixedWidth(280)
 
         layout.addWidget(self.image_viewer)
         layout.addWidget(self.controls_panel)

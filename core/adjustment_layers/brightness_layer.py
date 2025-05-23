@@ -5,8 +5,17 @@ class BrightnessLayer:
     def __init__(self, brightness_value: float):
         self.brightness_value = brightness_value
 
+    # def __str__(self):
+    #     return f"Brightness ({self.brightness_value:+.2f})"
+
+    def __name__(self):
+        return "Brightness"
+    
+    def __value__(self):
+        return self.brightness_value
+
     def __str__(self):
-        return f"Brightness ({self.brightness_value:+.2f})"
+        return "Brightness"
 
     def apply(self, image: np.ndarray) -> np.ndarray:
         return adjust_brightness(image, self.brightness_value)

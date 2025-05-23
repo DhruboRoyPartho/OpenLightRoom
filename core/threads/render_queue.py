@@ -9,7 +9,7 @@ class RenderQueue(QObject):
         self.document = document
         self.worker = None
         self.timer = QTimer()
-        self.timer.setInterval(30)     # milliseconds
+        self.timer.setInterval(50)     # milliseconds
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self._start_render)
 
