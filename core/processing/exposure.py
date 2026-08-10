@@ -1,11 +1,10 @@
 import numpy as np
 
 def adjust_exposure(image: np.ndarray, value: float) -> np.ndarray:
-    image = image.astype(np.float32)
-
-    value /= 20.0   # Mapping -5.0 to 5.0
-
-    image = image * (2 ** value)
-
-    image = np.clip(image, 0, 255).astype(np.uint8)
-    return image
+    # value range: -100..100, mapped to -5..+5 stops. Operates on
+    # scene-linear data, where a stop is literally a doubling of light -
+    # this is the whole reason the pipeline carries a linear working stage.
+    if value == 0:
+        return image
+    stops = value / 20.0
+    return image * (2.0 ** stops)
