@@ -7,3 +7,12 @@ output/
 
 # Ignore specific files
 headless_main.py
+
+.venv
+.venv/
+.claude
+.claude/
+.agent
+.agent/
+.vscode
+.vscode/

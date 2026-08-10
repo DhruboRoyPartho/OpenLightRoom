@@ -23,14 +23,19 @@ class ExportDialog(QDialog):
         
         layout.addWidget(QLabel("Export Format"))
         self.format_box = QComboBox()
-        self.format_box.addItems(["JPG", "PNG", "TIFF"])
+        self.format_box.addItems(["JPG", "PNG", "TIFF", "WEBP"])
         layout.addWidget(self.format_box)
 
-        layout.addWidget(QLabel("Quality (for JPEG)"))
+        layout.addWidget(QLabel("Bit Depth (PNG/TIFF only)"))
+        self.bit_depth_box = QComboBox()
+        self.bit_depth_box.addItems(["8-bit", "16-bit"])
+        layout.addWidget(self.bit_depth_box)
+
+        layout.addWidget(QLabel("Quality (for JPEG/WEBP)"))
         self.quality_slider = QSlider(Qt.Horizontal)
         self.quality_slider.setRange(10, 100)
         self.quality_slider.setValue(95)
         layout.addWidget(self.quality_slider)
-        
+
         self.export_btn = QPushButton("Export")
         layout.addWidget(self.export_btn)
