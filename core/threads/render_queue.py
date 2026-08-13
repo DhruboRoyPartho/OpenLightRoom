@@ -3,6 +3,7 @@ from core.threads.render_worker import RenderWorker
 
 class RenderQueue(QObject):
     image_rendered = Signal(object)
+    render_started = Signal()   # fired each time a render worker actually launches
 
     def __init__(self, document):
         super().__init__()
@@ -10,10 +11,18 @@ class RenderQueue(QObject):
         self.worker = None
         self._pending_geometry_override = None
         self._render_requested_while_busy = False
+        # None = full resolution. Set via set_preview_max_dimension() to
+        # trade interactive-render speed for on-screen detail; never
+        # affects export, which always calls document.render() directly
+        # with no max_dimension.
+        self.preview_max_dimension = None
         self.timer = QTimer()
         self.timer.setInterval(50)     # milliseconds
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self._start_render)
+
+    def set_preview_max_dimension(self, max_dimension):
+        self.preview_max_dimension = max_dimension
 
     def request_render(self, geometry_override=None):
         self._pending_geometry_override = geometry_override
@@ -33,7 +42,8 @@ class RenderQueue(QObject):
         self._launch_worker()
 
     def _launch_worker(self):
-        self.worker = RenderWorker(self.document, self._pending_geometry_override)
+        self.render_started.emit()
+        self.worker = RenderWorker(self.document, self._pending_geometry_override, self.preview_max_dimension)
         self.worker.rendered.connect(self.image_rendered)
         self.worker.finished.connect(self._on_worker_finished)
         self.worker.start()

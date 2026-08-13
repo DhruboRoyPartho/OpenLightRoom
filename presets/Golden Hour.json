@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "name": "Golden Hour",
+  "layers": [
+    {
+      "type": "Temperature",
+      "value": 22.0
+    },
+    {
+      "type": "Tint",
+      "value": 4.0
+    },
+    {
+      "type": "Contrast",
+      "value": 1.12
+    },
+    {
+      "type": "Highlights",
+      "value": -25.0
+    },
+    {
+      "type": "Shadows",
+      "value": 15.0
+    },
+    {
+      "type": "Vibrance",
+      "value": 20.0
+    },
+    {
+      "type": "HSL",
+      "hue": {},
+      "saturation": {
+        "Orange": 15,
+        "Yellow": 10
+      },
+      "luminance": {
+        "Orange": 8
+      }
+    }
+  ]
+}

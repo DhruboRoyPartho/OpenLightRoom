@@ -5,6 +5,18 @@ from core.commands.change_layer_command import ChangeLayerCommand
 from interface.gui.angle_ruler import AngleRuler, MIN_ANGLE, MAX_ANGLE
 from interface.gui.theme import BG_PANEL, BORDER, BORDER_LIGHT, TEXT, TEXT_DIM, ACCENT
 
+# (display label, longer-side pixel cap) - None means full resolution.
+# Only affects the interactive on-screen preview (see
+# core/processing/geometry.py:downscale_to_max_dimension and
+# ImageDocument.render's max_dimension) - export always renders at full
+# resolution regardless of this setting.
+PREVIEW_QUALITY_OPTIONS = [
+    ("Full Quality", None),
+    ("High (2048px)", 2048),
+    ("Balanced (1280px)", 1280),
+    ("Fast (800px)", 800),
+]
+
 # (display label, ratio) - ratio is width/height, None for free-form, or the
 # sentinel "original" to mean "match the current frame's own aspect".
 ASPECT_RATIOS = [
@@ -98,6 +110,20 @@ class CanvasToolbar(QWidget):
         self.actual_size_btn.setToolTip("Actual size (1:1 pixels)")
         self.actual_size_btn.clicked.connect(self.viewer.set_actual_size)
         row.addWidget(self.actual_size_btn)
+
+        row.addSpacing(12)
+
+        self.preview_quality_combo = QComboBox()
+        for label, _ in PREVIEW_QUALITY_OPTIONS:
+            self.preview_quality_combo.addItem(label)
+        self.preview_quality_combo.setToolTip(
+            "Preview render resolution. Lower settings render faster while\n"
+            "editing on large images - this never affects the quality of an\n"
+            "exported/saved image, which always renders at full resolution.\n"
+            "Switch back to Full Quality before inspecting fine detail at 100%."
+        )
+        self.preview_quality_combo.currentIndexChanged.connect(self._on_preview_quality_changed)
+        row.addWidget(self.preview_quality_combo)
 
         row.addSpacing(12)
 
@@ -205,6 +231,7 @@ class CanvasToolbar(QWidget):
 
         self.viewer.zoomChanged.connect(self._on_zoom_changed)
         self.viewer.angleChanged.connect(self._on_viewer_angle_changed)
+        self.viewer.cropModeChanged.connect(self._on_viewer_crop_mode_changed)
 
     # --- geometry helpers -------------------------------------------------
 
@@ -252,6 +279,12 @@ class CanvasToolbar(QWidget):
     def _on_zoom_changed(self, zoom, is_fit):
         self.zoom_label.setText("Fit" if is_fit else f"{round(zoom * 100)}%")
 
+    # --- preview quality --------------------------------------------------
+
+    def _on_preview_quality_changed(self, index):
+        _, max_dimension = PREVIEW_QUALITY_OPTIONS[index]
+        self.viewer.set_preview_quality(max_dimension)
+
     # --- crop mode ----------------------------------------------------------
 
     def _on_crop_toggled(self, checked):
@@ -267,6 +300,22 @@ class CanvasToolbar(QWidget):
         else:
             self.straighten_btn.setChecked(False)
             self.viewer.exit_crop_mode()
+
+    def _on_viewer_crop_mode_changed(self, active):
+        # Crop mode can now be force-exited by something other than this
+        # button (e.g. selecting a mask, which makes it interactive on
+        # the canvas) - keep the button/row in sync regardless of who
+        # triggered the change. Guarded so a normal click on crop_btn
+        # (which already drives enter/exit_crop_mode itself) doesn't
+        # double-process.
+        if self.crop_btn.isChecked() == active:
+            return
+        self.crop_btn.blockSignals(True)
+        self.crop_btn.setChecked(active)
+        self.crop_btn.blockSignals(False)
+        self.crop_row.setVisible(active)
+        if not active:
+            self.straighten_btn.setChecked(False)
 
     def _selected_ratio(self):
         _, ratio = ASPECT_RATIOS[self.aspect_combo.currentIndex()]
