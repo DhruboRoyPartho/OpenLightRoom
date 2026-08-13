@@ -19,6 +19,10 @@ from core.adjustment_layers.vibrance_layer import VibranceLayer
 from core.adjustment_layers.saturation_layer import SaturationLayer
 from core.adjustment_layers.hue_layer import HueLayer
 from core.adjustment_layers.parametric_curve_layer import ParametricCurveLayer
+from core.adjustment_layers.hsl_layer import HSLLayer
+from core.adjustment_layers.color_wheels_layer import ColorWheelsLayer
+from core.adjustment_layers.masked_adjustment_layer import MaskedAdjustmentLayer, ADJUSTMENT_FIELDS, ADJUSTMENT_DEFAULTS
+from core.masking.mask import Mask, MaskComponent
 
 # A project file is a small JSON "sidecar": it records which source image it
 # edits and the current value of each adjustment layer, not pixel data. This
@@ -45,7 +49,7 @@ LAYER_TYPES = {
 }
 
 
-def _serialize_layer(layer):
+def serialize_layer(layer):
     name = str(layer)
     if name == "Curve":
         return {"type": name, "points_by_channel": layer.points_by_channel}
@@ -66,14 +70,131 @@ def _serialize_layer(layer):
             "crop_rect": list(layer.crop_rect),
             "angle": layer.angle,
         }
+    if name == "HSL":
+        return {
+            "type": name,
+            "hue": layer.hue,
+            "saturation": layer.saturation,
+            "luminance": layer.luminance,
+        }
+    if name == "Color Wheels":
+        return {
+            "type": name,
+            "shadows": layer.shadows,
+            "midtones": layer.midtones,
+            "highlights": layer.highlights,
+            "global": layer.global_,
+        }
+    if name.startswith("Mask "):
+        return {
+            "type": name,
+            "label": layer.label,
+            "visible": layer.visible,
+            **{field: getattr(layer, field) for field in ADJUSTMENT_FIELDS},
+            "mask": _serialize_mask(layer.mask),
+        }
     return {"type": name, "value": next(iter(vars(layer).values()))}
+
+
+def _serialize_mask(mask: Mask) -> dict:
+    return {
+        "feather": mask.feather,
+        "blur": mask.blur,
+        "density": mask.density,
+        "invert": mask.invert,
+        "components": [
+            {"kind": c.kind, "params": c.params, "op": c.op, "invert": c.invert}
+            for c in mask.components
+        ],
+    }
+
+
+def _deserialize_mask(data: dict) -> Mask:
+    components = [
+        MaskComponent(
+            kind=c["kind"], params=c.get("params", {}),
+            op=c.get("op", "add"), invert=c.get("invert", False),
+        )
+        for c in data.get("components", [])
+    ]
+    return Mask(
+        components=components,
+        feather=data.get("feather", 0.0),
+        blur=data.get("blur", 0.0),
+        density=data.get("density", 100.0),
+        invert=data.get("invert", False),
+    )
+
+
+def serialize_layers(layers):
+    return [serialize_layer(layer) for layer in layers]
+
+
+def deserialize_layer(entry):
+    """Reverses serialize_layer(). Returns None for an unrecognized/legacy
+    layer type (skipped by the caller) rather than raising, so a project or
+    preset file from a newer app version degrades gracefully instead of
+    failing to load entirely."""
+    layer_type = entry.get("type")
+    if layer_type == "Curve":
+        return CurveLayer(entry.get("points_by_channel"))
+    if layer_type == "Parametric Curve":
+        return ParametricCurveLayer(
+            highlights=entry.get("highlights", 0),
+            lights=entry.get("lights", 0),
+            darks=entry.get("darks", 0),
+            shadows=entry.get("shadows", 0),
+        )
+    if layer_type == "Crop":
+        return GeometryLayer(
+            rotation90=entry.get("rotation90", 0),
+            flip_h=entry.get("flip_h", False),
+            flip_v=entry.get("flip_v", False),
+            crop_rect=tuple(entry.get("crop_rect")) if entry.get("crop_rect") else None,
+            angle=entry.get("angle", 0.0),
+        )
+    if layer_type == "HSL":
+        return HSLLayer(
+            hue=entry.get("hue", {}),
+            saturation=entry.get("saturation", {}),
+            luminance=entry.get("luminance", {}),
+        )
+    if layer_type == "Color Wheels":
+        return ColorWheelsLayer(
+            shadows=entry.get("shadows", {}),
+            midtones=entry.get("midtones", {}),
+            highlights=entry.get("highlights", {}),
+            global_=entry.get("global", {}),
+        )
+    if layer_type and layer_type.startswith("Mask "):
+        adjustments = {field: entry.get(field, ADJUSTMENT_DEFAULTS[field]) for field in ADJUSTMENT_FIELDS}
+        return MaskedAdjustmentLayer(
+            layer_type,
+            mask=_deserialize_mask(entry.get("mask", {})),
+            label=entry.get("label", layer_type),
+            visible=entry.get("visible", True),
+            **adjustments,
+        )
+    layer_cls = LAYER_TYPES.get(layer_type)
+    if layer_cls is None:
+        return None
+    return layer_cls(entry["value"])
+
+
+def deserialize_layers(entries):
+    layers = []
+    for entry in entries:
+        layer = deserialize_layer(entry)
+        if layer is not None:
+            layers.append(layer)
+    return layers
 
 
 def save_project(path: str, image_path: str, document: ImageDocument):
     data = {
         "version": PROJECT_VERSION,
         "image_path": image_path,
-        "layers": [_serialize_layer(layer) for layer in document.layers],
+        "layers": serialize_layers(document.layers),
     }
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
@@ -98,31 +219,6 @@ def load_project(path: str):
 
     document = ImageDocument(image)
     document.exif_data = read_exif(image_path)
-    for entry in data.get("layers", []):
-        layer_type = entry.get("type")
-        if layer_type == "Curve":
-            document.layers.append(CurveLayer(entry.get("points_by_channel")))
-            continue
-        if layer_type == "Parametric Curve":
-            document.layers.append(ParametricCurveLayer(
-                highlights=entry.get("highlights", 0),
-                lights=entry.get("lights", 0),
-                darks=entry.get("darks", 0),
-                shadows=entry.get("shadows", 0),
-            ))
-            continue
-        if layer_type == "Crop":
-            document.layers.append(GeometryLayer(
-                rotation90=entry.get("rotation90", 0),
-                flip_h=entry.get("flip_h", False),
-                flip_v=entry.get("flip_v", False),
-                crop_rect=tuple(entry.get("crop_rect")) if entry.get("crop_rect") else None,
-                angle=entry.get("angle", 0.0),
-            ))
-            continue
-        layer_cls = LAYER_TYPES.get(layer_type)
-        if layer_cls is None:
-            continue
-        document.layers.append(layer_cls(entry["value"]))
+    document.layers = deserialize_layers(data.get("layers", []))
 
     return image_path, document

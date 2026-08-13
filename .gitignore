@@ -2,7 +2,6 @@
 __pycache__/
 
 # Ignore some specific directories
-tests/
 output/
 
 # Ignore specific files
@@ -16,3 +15,14 @@ headless_main.py
 .agent/
 .vscode
 .vscode/
+
+# PyInstaller build artifacts and packaged output - large, regenerated,
+# not source.
+build/
+export/
+packaging/
+requirements-build.txt
+assets/logo.ico
+
+# Internal reference docs - not published with the repo.
+docs/

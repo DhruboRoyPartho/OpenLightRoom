@@ -131,6 +131,29 @@ def straighten_angle_from_line(dx: float, dy: float) -> float:
     return ((screen_angle + 90) % 180) - 90
 
 
+def downscale_to_max_dimension(image: np.ndarray, max_dimension: int) -> np.ndarray:
+    """Scales image down (never up) so its longer side is at most
+    max_dimension, preserving aspect ratio, via INTER_AREA - the correct
+    OpenCV filter for shrinking, since it averages every source pixel that
+    lands in each output pixel rather than aliasing fine detail away the
+    way INTER_LINEAR/NEAREST would at a large size reduction.
+
+    Used only for the interactive preview render (see ImageDocument.render
+    / RenderQueue's preview_max_dimension): a smaller working image makes
+    every per-pixel adjustment in the color pipeline proportionally
+    faster. Never used for the export/final-output path, which always
+    renders the untouched base_image at full resolution.
+    """
+    h, w = image.shape[:2]
+    longest = max(h, w)
+    if max_dimension is None or longest <= max_dimension:
+        return image
+    scale = max_dimension / float(longest)
+    new_w = max(1, round(w * scale))
+    new_h = max(1, round(h * scale))
+    return cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+
 def crop_normalized(image: np.ndarray, rect) -> np.ndarray:
     """rect: (x0, y0, x1, y1) as fractions of width/height, each in [0, 1].
     A no-op is returned unchanged (no copy) if rect covers the full frame."""
